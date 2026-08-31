@@ -21,15 +21,32 @@ export function MarketOverview() {
         {OVERVIEW.map((item) => {
           const q = bySym.get(item.symbol);
           return (
-            <button key={item.symbol} type="button" onClick={() => void navigate({ to: "/analysis", search: { ticker: item.symbol, tab: "analyze" } })} className="rounded-md border border-border p-3.5 text-left transition-shadow hover:border-primary/40 hover:shadow-sm">
+            <button
+              key={item.symbol}
+              type="button"
+              onClick={() =>
+                void navigate({
+                  to: "/analysis",
+                  search: { ticker: item.symbol, tab: "analyze" },
+                })
+              }
+              className="rounded-md border border-border p-3.5 text-left transition-shadow hover:border-primary/40 hover:shadow-sm"
+            >
               <div className="text-[15px] font-semibold">{item.symbol}</div>
-              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-subtle">{item.name}</div>
+              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-subtle">
+                {item.name}
+              </div>
               {isLoading && !q ? (
-                <><Skeleton className="mb-1 h-6 w-20" /><Skeleton className="h-4 w-12" /></>
+                <>
+                  <Skeleton className="mb-1 h-6 w-20" />
+                  <Skeleton className="h-4 w-12" />
+                </>
               ) : q ? (
                 <div className="flex items-end justify-between gap-2">
                   <div>
-                    <div className="text-lg font-semibold tabular leading-tight">{formatPrice(q.price)}</div>
+                    <div className="text-lg font-semibold tabular leading-tight">
+                      {formatPrice(q.price)}
+                    </div>
                     <ChangeText value={q.changePercent} className="text-sm" />
                   </div>
                   <Sparkline values={q.sparkline} positive={q.changePercent >= 0} />

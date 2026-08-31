@@ -1,7 +1,13 @@
 import { cn } from "@/lib/utils";
 import { formatPercent } from "@/lib/market/format";
 
-export function ChangePill({ value, className }: { value: number; className?: string }) {
+export function ChangePill({
+  value,
+  className,
+}: {
+  value: number;
+  className?: string;
+}) {
   const up = value >= 0;
   return (
     <span
@@ -16,9 +22,21 @@ export function ChangePill({ value, className }: { value: number; className?: st
   );
 }
 
-export function ChangeText({ value, className }: { value: number; className?: string }) {
+export function ChangeText({
+  value,
+  className,
+}: {
+  value: number;
+  className?: string;
+}) {
   return (
-    <span className={cn("font-semibold tabular", value >= 0 ? "text-gain" : "text-loss", className)}>
+    <span
+      className={cn(
+        "font-semibold tabular",
+        value >= 0 ? "text-gain" : "text-loss",
+        className,
+      )}
+    >
       {formatPercent(value)}
     </span>
   );

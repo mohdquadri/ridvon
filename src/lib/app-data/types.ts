@@ -10,7 +10,8 @@ export const ConnectorType = {
   Mcp: "Mcp",
 } as const;
 
-export type ConnectorTypeName = (typeof ConnectorType)[keyof typeof ConnectorType];
+export type ConnectorTypeName =
+  (typeof ConnectorType)[keyof typeof ConnectorType];
 
 export const GoogleDriveTools = {
   search: "google_drive_search",

@@ -50,6 +50,8 @@ export type NewsItem = {
   summary?: string;
 };
 
+export type Mover = Quote & { kind: "gainer" | "loser" };
+
 export type KeyLevel = {
   price: number;
   kind: "support" | "resistance";
@@ -86,7 +88,12 @@ export type TechnicalSnapshot = {
   pdh: number | null;
   pdl: number | null;
   pdc: number | null;
-  gap: { kind: "up" | "down"; from: number; to: number; filled: boolean } | null;
+  gap: {
+    kind: "up" | "down";
+    from: number;
+    to: number;
+    filled: boolean;
+  } | null;
   volume: number | null;
   avgVolume: number | null;
   high52: number | null;
@@ -100,8 +107,13 @@ export type TechnicalSnapshot = {
     levels: Array<{ ratio: number; label: string; price: number }>;
   } | null;
   pivots: {
-    pp: number; r1: number; r2: number; r3: number;
-    s1: number; s2: number; s3: number;
+    pp: number;
+    r1: number;
+    r2: number;
+    r3: number;
+    s1: number;
+    s2: number;
+    s3: number;
   } | null;
 };
 
@@ -116,10 +128,19 @@ export type GrokFundamental = {
 };
 
 export type GrokTechnical = {
-  trend: string; volatility: string; levels: string;
-  bullish: string; bearish: string; neutral: string;
-  risk: string; entry: string; stop: string; target: string;
-  bias: string; confidence: string; note: string;
+  trend: string;
+  volatility: string;
+  levels: string;
+  bullish: string;
+  bearish: string;
+  neutral: string;
+  risk: string;
+  entry: string;
+  stop: string;
+  target: string;
+  bias: string;
+  confidence: string;
+  note: string;
 };
 
 export type Fundamentals = {

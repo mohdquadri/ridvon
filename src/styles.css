@@ -3,6 +3,7 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
   --color-bg: #f4f5f8;
   --color-surface: #ffffff;
   --color-fg: #16181d;
@@ -22,20 +23,67 @@
   --color-ink: #2d3142;
   --color-warning: #c2410c;
   --color-warning-soft: #fff4e8;
+
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
   --radius-lg: 0.875rem;
   --radius-xl: 1.125rem;
+
   --shadow-card: 0 1px 2px rgb(16 18 27 / 0.04), 0 8px 24px rgb(16 18 27 / 0.04);
 }
 
 @layer base {
-  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-  html, body, #app { min-height: 100%; background: var(--color-bg); color: var(--color-fg); }
-  body { font-family: var(--font-sans); line-height: 1.5; }
-  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
 }
 
-.tabular { font-variant-numeric: tabular-nums; }
-.ticker-scroll { scrollbar-width: none; }
-.ticker-scroll::-webkit-scrollbar { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.ticker-scroll {
+  scrollbar-width: none;
+}
+.ticker-scroll::-webkit-scrollbar {
+  display: none;
+}

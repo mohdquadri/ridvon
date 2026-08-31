@@ -29,6 +29,7 @@ const TABS: { id: AnalysisTab; label: string }[] = [
 
 function AnalysisPage() {
   const { ticker, tab } = Route.useSearch();
+
   return (
     <AppShell sidebar={tab === "analyze"}>
       <div className="mb-5 overflow-hidden rounded-lg bg-ink">

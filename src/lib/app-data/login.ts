@@ -5,7 +5,11 @@ export function isLoginRequired(result: CallToolResult): boolean {
 }
 
 function isFramed(): boolean {
-  try { return window.self !== window.top; } catch { return true; }
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
 }
 
 export function redirectToLoginIfRequired(result: CallToolResult): boolean {
@@ -15,7 +19,10 @@ export function redirectToLoginIfRequired(result: CallToolResult): boolean {
   if (typeof window === "undefined") return false;
   if (isFramed()) {
     const opened = window.open(url, "_blank");
-    if (opened) { opened.opener = null; return true; }
+    if (opened) {
+      opened.opener = null;
+      return true;
+    }
   }
   window.location.assign(url);
   return true;

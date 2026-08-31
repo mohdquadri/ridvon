@@ -1,9 +1,21 @@
 export function formatPrice(n: number | null | undefined, digits = 2): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   if (Math.abs(n) >= 1000) {
-    return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    return (
+      "$" +
+      n.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      })
+    );
   }
-  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return (
+    "$" +
+    n.toLocaleString("en-US", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    })
+  );
 }
 
 export function formatPercent(n: number | null | undefined): string {
@@ -54,7 +66,9 @@ export function formatRatio(n: number | null | undefined, digits = 2): string {
 export function formatIpoDate(unixSec: number | null | undefined): string {
   if (unixSec === null || unixSec === undefined || !Number.isFinite(unixSec)) return "N/A";
   try {
-    return new Date(unixSec * 1000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    return new Date(unixSec * 1000).toLocaleDateString("en-CA", {
+      timeZone: "America/New_York",
+    });
   } catch {
     return "N/A";
   }
@@ -64,7 +78,12 @@ export function formatDay(iso: string | null | undefined): string {
   if (!iso) return "N/A";
   const d = new Date(`${iso}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return "N/A";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export function daysUntil(iso: string | null | undefined): number | null {
@@ -82,8 +101,13 @@ export function timeAgo(unixSec: number): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function marketSession(now = new Date()): { open: boolean; label: string } {
-  const ny = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+export function marketSession(now = new Date()): {
+  open: boolean;
+  label: string;
+} {
+  const ny = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/New_York" }),
+  );
   const day = ny.getDay();
   const minutes = ny.getHours() * 60 + ny.getMinutes();
   const open = 9 * 60 + 30;

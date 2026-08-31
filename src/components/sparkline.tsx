@@ -24,8 +24,21 @@ export function Sparkline({
     .join(" ");
   const color = positive ? "var(--color-gain)" : "var(--color-loss)";
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={cn("overflow-visible", className)} width={w} height={h} aria-hidden>
-      <polyline fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" points={pts} />
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className={cn("overflow-visible", className)}
+      width={w}
+      height={h}
+      aria-hidden
+    >
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        points={pts}
+      />
     </svg>
   );
 }

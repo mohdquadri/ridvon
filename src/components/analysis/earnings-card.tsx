@@ -27,6 +27,7 @@ export function EarningsCard({
       </Card>
     );
   }
+
   if (!next && !last) return null;
 
   return (
@@ -34,18 +35,38 @@ export function EarningsCard({
       <CardTitle className="mb-3">Earnings</CardTitle>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-md bg-bg px-4 py-3">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-subtle">Next report</div>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-subtle">
+            Next report
+          </div>
           <div className="mt-1 text-lg font-bold tabular">{formatDay(next)}</div>
           <div className="mt-0.5 text-xs text-muted">
             {next
-              ? `${f?.nextEarningsEst ? "Est. " : ""}${days == null ? "" : days === 0 ? "today" : days > 0 ? `in ${days}d` : `${Math.abs(days)}d ago`}`.trim()
+              ? `${f?.nextEarningsEst ? "Est. " : ""}${
+                  days == null
+                    ? ""
+                    : days === 0
+                      ? "today"
+                      : days > 0
+                        ? `in ${days}d`
+                        : `${Math.abs(days)}d ago`
+                }`.trim()
               : "Not published"}
           </div>
         </div>
         <div className="rounded-md bg-bg px-4 py-3">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-subtle">Last surprise</div>
-          <div className={cn("mt-1 text-lg font-bold tabular", beat && "text-gain", miss && "text-loss")}>
-            {surprise == null ? "—" : `${beat ? "Beat" : miss ? "Miss" : "Inline"} ${surprise > 0 ? "+" : ""}${surprise.toFixed(1)}%`}
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-subtle">
+            Last surprise
+          </div>
+          <div
+            className={cn(
+              "mt-1 text-lg font-bold tabular",
+              beat && "text-gain",
+              miss && "text-loss",
+            )}
+          >
+            {surprise == null
+              ? "—"
+              : `${beat ? "Beat" : miss ? "Miss" : "Inline"} ${surprise > 0 ? "+" : ""}${surprise.toFixed(1)}%`}
           </div>
           <div className="mt-0.5 text-xs text-muted">
             {last ? formatDay(last) : "—"}

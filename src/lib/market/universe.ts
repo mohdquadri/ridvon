@@ -40,13 +40,31 @@ export const MOVER_UNIVERSE = [
 export const DEFAULT_WATCHLIST = ["NVDA", "TSLA", "AMD", "AAPL", "MSFT"];
 
 export const DISPLAY_NAMES: Record<string, string> = {
-  SPY: "S&P 500", QQQ: "Nasdaq Tech", DIA: "Dow Jones", IWM: "Small Caps",
-  SLV: "Silver", TLT: "20Y Treasury", XLK: "Tech Sector", XLF: "Financials",
-  XLE: "Energy", EEM: "Emerging Mkts", HYG: "High Yield", SMH: "Semiconductors",
-  XLV: "Healthcare", USO: "Oil", GLD: "Gold",
-  "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum",
-  AAPL: "Apple", MSFT: "Microsoft", NVDA: "NVIDIA", TSLA: "Tesla",
-  AMD: "AMD", GOOGL: "Alphabet", META: "Meta", AMZN: "Amazon",
+  SPY: "S&P 500",
+  QQQ: "Nasdaq Tech",
+  DIA: "Dow Jones",
+  IWM: "Small Caps",
+  SLV: "Silver",
+  TLT: "20Y Treasury",
+  XLK: "Tech Sector",
+  XLF: "Financials",
+  XLE: "Energy",
+  EEM: "Emerging Mkts",
+  HYG: "High Yield",
+  SMH: "Semiconductors",
+  XLV: "Healthcare",
+  USO: "Oil",
+  GLD: "Gold",
+  "BTC-USD": "Bitcoin",
+  "ETH-USD": "Ethereum",
+  AAPL: "Apple",
+  MSFT: "Microsoft",
+  NVDA: "NVIDIA",
+  TSLA: "Tesla",
+  AMD: "AMD",
+  GOOGL: "Alphabet",
+  META: "Meta",
+  AMZN: "Amazon",
 };
 
 export const COMPETITORS: Record<string, string[]> = {
@@ -62,16 +80,62 @@ export const COMPETITORS: Record<string, string[]> = {
   JPM: ["BAC", "WFC", "GS", "MS"],
 };
 
-export type CatalystCategory = "earn" | "fda" | "deal" | "ma" | "macro" | "ai" | "viral";
+export type CatalystCategory =
+  | "earn"
+  | "fda"
+  | "deal"
+  | "ma"
+  | "macro"
+  | "ai"
+  | "viral";
 
-export const CATALYST_GROUPS: { id: CatalystCategory; title: string; keywords: string[] }[] = [
-  { id: "earn", title: "Corporate Events", keywords: ["earnings", "guidance", "revenue", "profit"] },
-  { id: "fda", title: "FDA & Healthcare", keywords: ["fda", "approval", "drug", "trial"] },
-  { id: "deal", title: "Deals & Partnerships", keywords: ["partnership", "collaboration", "contract", "deal", "agreement"] },
-  { id: "ma", title: "M&A Activity", keywords: ["merger", "acquisition", "takeover", "buyout"] },
-  { id: "macro", title: "Macro Events", keywords: ["expansion", "product launch", "innovation", "fed", "inflation"] },
-  { id: "ai", title: "AI & Tech", keywords: ["artificial intelligence", "machine learning", "nvidia", "data center", "cloud", "semiconductor"] },
-  { id: "viral", title: "Viral & Social", keywords: ["short squeeze", "reddit", "viral"] },
+export const CATALYST_GROUPS: {
+  id: CatalystCategory;
+  title: string;
+  keywords: string[];
+}[] = [
+  {
+    id: "earn",
+    title: "Corporate Events",
+    keywords: ["earnings", "guidance", "revenue", "profit"],
+  },
+  {
+    id: "fda",
+    title: "FDA & Healthcare",
+    keywords: ["fda", "approval", "drug", "trial"],
+  },
+  {
+    id: "deal",
+    title: "Deals & Partnerships",
+    keywords: ["partnership", "collaboration", "contract", "deal", "agreement"],
+  },
+  {
+    id: "ma",
+    title: "M&A Activity",
+    keywords: ["merger", "acquisition", "takeover", "buyout"],
+  },
+  {
+    id: "macro",
+    title: "Macro Events",
+    keywords: ["expansion", "product launch", "innovation", "fed", "inflation"],
+  },
+  {
+    id: "ai",
+    title: "AI & Tech",
+    keywords: [
+      "artificial intelligence",
+      "machine learning",
+      "nvidia",
+      "data center",
+      "cloud",
+      "semiconductor",
+    ],
+  },
+  {
+    id: "viral",
+    title: "Viral & Social",
+    keywords: ["short squeeze", "reddit", "viral"],
+  },
 ];
 
 export function yahooSymbol(symbol: string): string {
@@ -111,3 +175,4 @@ export function formatExchange(
   if (exchangeName) return exchangeName;
   return null;
 }
+
