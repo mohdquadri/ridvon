@@ -1,7 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { Activity, LineChart, Radar } from "lucide-react";
+import { LineChart, Radar, Zap } from "lucide-react";
 
 const TOOLS = [
+  {
+    to: "/analysis",
+    search: { ticker: "", tab: "trade" as const },
+    icon: Zap,
+    title: "Trade Desk",
+    desc: "Is this name worth trading right now — entry, stop, target",
+  },
   {
     to: "/analysis",
     search: { ticker: "", tab: "scanner" as const },
@@ -13,15 +20,8 @@ const TOOLS = [
     to: "/analysis",
     search: { ticker: "", tab: "analyze" as const },
     icon: LineChart,
-    title: "Stock Analysis",
-    desc: "Live quote, levels, news, and Grok-powered fundamentals",
-  },
-  {
-    to: "/analysis",
-    search: { ticker: "", tab: "technical" as const },
-    icon: Activity,
-    title: "Technical Signals",
-    desc: "Trend, support and resistance, RSI, MACD, trade setups",
+    title: "Investor Mode",
+    desc: "Valuation, earnings, ownership, long-term Grok read",
   },
 ] as const;
 

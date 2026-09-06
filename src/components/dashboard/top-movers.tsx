@@ -21,7 +21,7 @@ export function TopMovers() {
   const losers = sorted.filter((q) => q.changePercent < 0).slice(-5).reverse();
 
   function go(symbol: string) {
-    void navigate({ to: "/analysis", search: { ticker: symbol, tab: "analyze" } });
+    void navigate({ to: "/analysis", search: { ticker: symbol, tab: "trade" } });
   }
 
   return (

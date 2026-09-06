@@ -58,7 +58,7 @@ export function TickerBar() {
   const bySym = new Map((data ?? []).map((q) => [q.symbol, q]));
 
   function go(symbol: string) {
-    void navigate({ to: "/analysis", search: { ticker: symbol, tab: "analyze" } });
+    void navigate({ to: "/analysis", search: { ticker: symbol, tab: "trade" } });
   }
 
   return (

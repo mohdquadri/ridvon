@@ -14,7 +14,7 @@ export function Header() {
     setQ("");
     void navigate({
       to: "/analysis",
-      search: { ticker, tab: "analyze" },
+      search: { ticker, tab: "trade" },
     });
   }
 
@@ -45,7 +45,7 @@ export function Header() {
           </NavLink>
           <Link
             to="/analysis"
-            search={{ ticker: "", tab: "analyze" }}
+            search={{ ticker: "", tab: "trade" }}
             className={cn(
               "text-sm font-medium no-underline transition-colors",
               pathname.startsWith("/analysis") ? "text-primary" : "text-muted hover:text-fg",

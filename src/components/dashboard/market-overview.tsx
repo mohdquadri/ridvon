@@ -27,7 +27,7 @@ export function MarketOverview() {
               onClick={() =>
                 void navigate({
                   to: "/analysis",
-                  search: { ticker: item.symbol, tab: "analyze" },
+                  search: { ticker: item.symbol, tab: "trade" },
                 })
               }
               className="rounded-md border border-border p-3.5 text-left transition-shadow hover:border-primary/40 hover:shadow-sm"

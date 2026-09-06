@@ -34,7 +34,7 @@ export function MoversBar() {
               onClick={() =>
                 void navigate({
                   to: "/analysis",
-                  search: { ticker: q.symbol, tab: "analyze" },
+                  search: { ticker: q.symbol, tab: "trade" },
                 })
               }
               className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"

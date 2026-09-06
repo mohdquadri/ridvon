@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/app-shell";
+import { TradeDesk } from "@/components/analysis/trade-desk";
 import { StockAnalysis } from "@/components/analysis/stock-analysis";
 import { TechnicalAnalysis } from "@/components/analysis/technical-analysis";
 import { CatalystScanner } from "@/components/analysis/catalyst-scanner";
@@ -13,16 +14,17 @@ export const Route = createFileRoute("/analysis")({
     const ticker =
       typeof s.ticker === "string" ? s.ticker.toUpperCase().replace(/[^A-Z.]/g, "") : "";
     const tab: AnalysisTab =
-      s.tab === "technical" || s.tab === "scanner" || s.tab === "analyze"
+      s.tab === "technical" || s.tab === "scanner" || s.tab === "analyze" || s.tab === "trade"
         ? s.tab
-        : "analyze";
+        : "trade";
     return { ticker, tab };
   },
   component: AnalysisPage,
 });
 
 const TABS: { id: AnalysisTab; label: string }[] = [
-  { id: "analyze", label: "Fundamentals" },
+  { id: "trade", label: "Trader Mode" },
+  { id: "analyze", label: "Investor Mode" },
   { id: "technical", label: "Technical" },
   { id: "scanner", label: "Scanner" },
 ];
@@ -31,7 +33,7 @@ function AnalysisPage() {
   const { ticker, tab } = Route.useSearch();
 
   return (
-    <AppShell sidebar={tab === "analyze"}>
+    <AppShell sidebar={tab === "trade" || tab === "analyze"}>
       <div className="mb-5 overflow-hidden rounded-lg bg-ink">
         <div className="flex gap-0 overflow-x-auto border-b border-white/10">
           {TABS.map((t) => (
@@ -40,7 +42,7 @@ function AnalysisPage() {
               to="/analysis"
               search={{ ticker, tab: t.id }}
               className={cn(
-                "px-6 py-3 text-[13px] font-medium no-underline transition-colors",
+                "shrink-0 px-4 py-3 text-[13px] font-medium no-underline transition-colors sm:px-6",
                 tab === t.id
                   ? "border-b-2 border-primary bg-primary/10 text-primary-fg"
                   : "border-b-2 border-transparent text-ticker-muted hover:text-ticker-fg",
@@ -51,6 +53,7 @@ function AnalysisPage() {
           ))}
         </div>
       </div>
+      {tab === "trade" && <TradeDesk initialTicker={ticker} />}
       {tab === "analyze" && <StockAnalysis initialTicker={ticker} />}
       {tab === "technical" && <TechnicalAnalysis initialTicker={ticker} />}
       {tab === "scanner" && <CatalystScanner initialTicker={ticker} />}
