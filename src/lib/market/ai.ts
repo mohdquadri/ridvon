@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { GrokFundamental, GrokTechnical, TechnicalSnapshot } from "./types";
+import type { GrokFundamental, GrokTechnical, HorizonCall, TechnicalSnapshot } from "./types";
 
 const MODEL = "grok-4.5";
 
@@ -44,6 +44,19 @@ function extractJson(text: string): unknown | null {
   }
 }
 
+function asCall(v: unknown): HorizonCall {
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  const str = (k: string, fallback: string) =>
+    typeof o[k] === "string" && o[k].trim() ? (o[k] as string).trim() : fallback;
+  return {
+    action: str("action", "Wait"),
+    take: str("take", ""),
+    entry: str("entry", "—"),
+    stop: str("stop", "—"),
+    target: str("target", "—"),
+  };
+}
+
 export const analyzeFundamentalsAi = createServerFn({ method: "POST" })
   .validator((input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("invalid");
@@ -56,13 +69,17 @@ export const analyzeFundamentalsAi = createServerFn({ method: "POST" })
       low52?: unknown;
       headlines?: unknown;
       metrics?: unknown;
+      levels?: unknown;
     };
     if (typeof o.symbol !== "string") throw new Error("symbol required");
     const headlines = Array.isArray(o.headlines)
       ? o.headlines.filter((h): h is string => typeof h === "string").slice(0, 8)
       : [];
     const metrics = Array.isArray(o.metrics)
-      ? o.metrics.filter((h): h is string => typeof h === "string").slice(0, 32)
+      ? o.metrics.filter((h): h is string => typeof h === "string").slice(0, 40)
+      : [];
+    const levels = Array.isArray(o.levels)
+      ? o.levels.filter((h): h is string => typeof h === "string").slice(0, 16)
       : [];
     return {
       symbol: o.symbol.toUpperCase(),
@@ -73,10 +90,11 @@ export const analyzeFundamentalsAi = createServerFn({ method: "POST" })
       low52: typeof o.low52 === "number" ? o.low52 : null,
       headlines,
       metrics,
+      levels,
     };
   })
   .handler(async ({ data }) => {
-    const prompt = `Analyze ${data.name} (${data.symbol}) as a concise equity analyst.
+    const prompt = `Analyze ${data.name} (${data.symbol}) as a buy-side equity analyst making a trade call.
 
 Live quote:
 - Price: $${data.price.toFixed(2)} (${data.changePercent >= 0 ? "+" : ""}${data.changePercent.toFixed(2)}%)
@@ -85,6 +103,9 @@ Live quote:
 
 Key fundamentals:
 ${data.metrics.map((m) => `- ${m}`).join("\n") || "(none)"}
+
+Chart levels (use these dollar numbers, do not invent round numbers):
+${data.levels.map((m) => `- ${m}`).join("\n") || "(none)"}
 
 Recent headlines:
 ${data.headlines.map((h, i) => `${i + 1}. ${h}`).join("\n") || "(none)"}
@@ -95,27 +116,37 @@ Return ONLY JSON with this shape:
   "growth": { "metric": "short label", "take": "1-2 sentences" },
   "risks": { "metric": "short label", "take": "1-2 sentences" },
   "sentiment": "2-3 sentences on news tone and near-term tape",
-  "outlook": "2 sentences, actionable, no disclaimer dump"
+  "outlook": "2 sentences, actionable",
+  "shortTerm": { "action": "Buy|Wait|Trim|Avoid", "take": "1 sentence for next 1-10 sessions", "entry": "$x-$y", "stop": "$z", "target": "$w" },
+  "swing": { "action": "Buy|Wait|Trim|Avoid", "take": "1 sentence for 2-8 weeks", "entry": "$x-$y", "stop": "$z", "target": "$w" },
+  "longTerm": { "action": "Buy|Wait|Trim|Avoid", "take": "1 sentence for 6-18 months", "entry": "$x-$y", "stop": "$z", "target": "$w" }
 }
 
-Use your knowledge of the company plus the live quote. Be specific. No markdown.`;
+Rules:
+- action must be exactly Buy, Wait, Trim, or Avoid.
+- Levels must be dollar prices from the chart levels or nearby. Cite support as entry, a level below as stop/invalidation, resistance as target.
+- Short-term = days to 2 weeks. Swing = weeks to ~2 months. Long-term = 6-18 month investor.
+- Be decisive. No disclaimer dump. No markdown.`;
 
     const result = await chat(
       [
         {
           role: "system",
           content:
-            "You are a buy-side equity analyst. Output valid JSON only. No markdown fences unless needed.",
+            "You are a buy-side equity analyst making a clear buy/wait call by horizon. Output valid JSON only.",
         },
         { role: "user", content: prompt },
       ],
-      1100,
+      1600,
     );
     if (!result.ok) return result;
     const parsed = extractJson(result.text) as GrokFundamental | null;
     if (!parsed?.valuation || !parsed.growth || !parsed.risks) {
       return { ok: false as const, error: "Could not parse AI analysis" };
     }
+    parsed.shortTerm = asCall(parsed.shortTerm);
+    parsed.swing = asCall(parsed.swing);
+    parsed.longTerm = asCall(parsed.longTerm);
     return { ok: true as const, analysis: parsed };
   });
 

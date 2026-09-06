@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Download, Plus, Trash2, Upload, X } from "lucide-react";
+import { Download, FileSpreadsheet, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -9,12 +9,43 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChangeText } from "@/components/change-pill";
 import { useWatchlist, type WatchlistSort } from "@/hooks/use-watchlist";
 import { useQuotes } from "@/hooks/use-quotes";
+import { WATCHLIST_SYNC } from "@/lib/market/universe";
 import { formatPrice } from "@/lib/market/format";
 import { cn } from "@/lib/utils";
 
+function syncedAgo(ts: number | null): string {
+  if (!ts) return "waiting";
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if (s < 20) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  return `${Math.round(m / 60)}h ago`;
+}
+
 export function WatchlistPanel() {
-  const { symbols, add, remove, clear, merge, sort, setSort } = useWatchlist();
+  const {
+    symbols,
+    add,
+    remove,
+    clear,
+    merge,
+    replace,
+    sort,
+    setSort,
+    sheetUrl,
+    setSheetUrl,
+    liveOn,
+    setLiveOn,
+    liveSyncing,
+    liveError,
+    lastSyncedAt,
+    syncName,
+    refetchLive,
+  } = useWatchlist();
   const [draft, setDraft] = useState("");
+  const [sheetDraft, setSheetDraft] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -60,6 +91,18 @@ export function WatchlistPanel() {
     }
   }
 
+  async function saveAndLiveSync() {
+    const url = (sheetDraft || sheetUrl).trim();
+    if (url) setSheetUrl(url);
+    setLiveOn(true);
+    const res = await refetchLive();
+    if (res.data?.symbols.length) {
+      toast.success(`Live sync on · ${res.data.symbols.length} tickers`);
+    } else if (res.error) {
+      toast.error(res.error instanceof Error ? res.error.message : "Sync failed");
+    }
+  }
+
   const sorts: { id: WatchlistSort; label: string }[] = [
     { id: "default", label: "Default" },
     { id: "up", label: "% ↑" },
@@ -70,10 +113,35 @@ export function WatchlistPanel() {
     <Card>
       <div className="mb-3 flex items-center justify-between gap-2">
         <CardTitle className="mb-0">Watchlist</CardTitle>
-        <span className="rounded-sm bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-          Local
-        </span>
+        <button
+          type="button"
+          onClick={() => setLiveOn(!liveOn)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+            liveOn
+              ? "bg-primary-soft text-primary"
+              : "bg-bg text-subtle",
+          )}
+          title={liveOn ? "Live sync on — click to pause" : "Live sync paused — click to resume"}
+        >
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              liveOn ? "bg-gain" : "bg-subtle",
+              liveOn && liveSyncing ? "animate-pulse" : "",
+            )}
+          />
+          {liveOn ? `LIVE · ${symbols.length}` : `PAUSED · ${symbols.length}`}
+        </button>
       </div>
+      <p className="mb-2 text-[11px] text-subtle">
+        {liveOn
+          ? `${syncName} · every 4 hours${lastSyncedAt ? ` · last ${syncedAgo(lastSyncedAt)}` : ""}`
+          : "Sync paused"}
+      </p>
+      {liveError && liveOn && sheetUrl ? (
+        <p className="mb-2 text-[11px] text-danger">{liveError}</p>
+      ) : null}
       <div className="mb-3 grid grid-cols-3 gap-1 rounded-md bg-bg p-1">
         {sorts.map((s) => (
           <button
@@ -94,7 +162,7 @@ export function WatchlistPanel() {
 
       <ul className="max-h-[420px] overflow-y-auto">
         {isLoading && symbols.length > 0 && quotes.length === 0
-          ? Array.from({ length: 5 }).map((_, i) => (
+          ? Array.from({ length: 8 }).map((_, i) => (
               <li key={i} className="flex items-center justify-between py-3">
                 <Skeleton className="h-4 w-12" />
                 <Skeleton className="h-8 w-16" />
@@ -151,7 +219,11 @@ export function WatchlistPanel() {
           <Plus className="size-4" />
         </Button>
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-1.5">
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <Button variant="secondary" size="sm" onClick={() => setSheetOpen((v) => !v)}>
+          <FileSpreadsheet className="size-3.5" />
+          Sheets
+        </Button>
         <Button variant="secondary" size="sm" onClick={exportList}>
           <Download className="size-3.5" /> Export
         </Button>
@@ -169,6 +241,34 @@ export function WatchlistPanel() {
           <Trash2 className="size-3.5" /> Clear
         </Button>
       </div>
+      {sheetOpen ? (
+        <div className="mt-2 rounded-md border border-border bg-bg p-2">
+          <p className="mb-1.5 text-[11px] text-muted">
+            Live sync pulls WatchlistSync every 4 hours. Paste a shared sheet link to follow the live file.
+          </p>
+          <Input
+            value={sheetDraft || sheetUrl}
+            onChange={(e) => setSheetDraft(e.target.value)}
+            placeholder="https://docs.google.com/spreadsheets/d/…"
+            className="h-8 text-[12px]"
+          />
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            <Button size="sm" disabled={liveSyncing} onClick={() => void saveAndLiveSync()}>
+              {liveSyncing ? "Syncing…" : "Keep live"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                replace([...WATCHLIST_SYNC]);
+                toast.success(`Loaded ${WATCHLIST_SYNC.length} tickers from WatchlistSync`);
+              }}
+            >
+              Snapshot
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <input
         ref={fileRef}
         type="file"

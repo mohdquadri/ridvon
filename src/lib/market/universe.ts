@@ -39,6 +39,17 @@ export const MOVER_UNIVERSE = [
 
 export const DEFAULT_WATCHLIST = ["NVDA", "TSLA", "AMD", "AAPL", "MSFT"];
 
+/** Latest WatchlistSync board (from Ridvon's morning sheet / briefing). */
+export const WATCHLIST_SYNC = [
+  "IREN", "ORCL", "MRVL", "APLD", "CRWV", "NOW", "OKLO",
+  "IONQ", "ASTS", "RGTI", "POWL", "EGO", "SVM", "QUBT",
+  "NVDA", "VRT", "AG", "INOD", "BBAI", "SMCI", "XBI", "KTOS",
+  "CRDO", "AMD", "TSM", "AVAV", "INTC", "SCCO",
+  "AMZN", "GOOGL", "MSFT", "AAPL", "CRM", "MU", "AVGO", "WDC",
+  "TSLA", "PATH", "NEE", "XOM", "ADBE", "DOCU", "HUBS",
+  "RGLD", "SPCX", "ARRY", "XNDU", "QQQ", "SPY",
+] as const;
+
 export const DISPLAY_NAMES: Record<string, string> = {
   SPY: "S&P 500",
   QQQ: "Nasdaq Tech",
@@ -123,11 +134,17 @@ export const CATALYST_GROUPS: {
     id: "ai",
     title: "AI & Tech",
     keywords: [
+      "ai partnership",
+      "ai integration",
+      "nvidia partnership",
+      "data center expansion",
+      "semiconductor deal",
+      "cloud partnership",
       "artificial intelligence",
       "machine learning",
       "nvidia",
       "data center",
-      "cloud",
+      "cloud computing",
       "semiconductor",
     ],
   },

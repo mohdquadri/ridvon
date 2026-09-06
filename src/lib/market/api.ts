@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import { DISPLAY_NAMES, yahooSymbol } from "./universe";
-import type { Fundamentals, History, NewsItem, PeerStat, Quote } from "./types";
+import { DISPLAY_NAMES, WATCHLIST_SYNC, yahooSymbol } from "./universe";
+import { scanNews, tickerHeadlines } from "./news";
+import { loadOwnership } from "./ownership";
+import type { Fundamentals, History, NewsItem, PeerStat, Quote, ScanResult } from "./types";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -177,6 +179,215 @@ export const getQuotes = createServerFn({ method: "POST" })
     return fetchQuotesUncached(data.symbols);
   });
 
+const TICKER_CELL = /^[A-Z]{1,5}(?:[.-][A-Z]{1,2})?$/;
+const TICKER_SKIP = new Set([
+  "TICKER", "SYMBOL", "SYMB", "NAME", "PRICE", "CHANGE", "CHG", "VOLUME", "VOL",
+  "DATE", "NOTES", "NOTE", "SECTOR", "INDUSTRY", "TYPE", "STATUS", "RATING",
+  "SENTIMENT", "BULLISH", "BEARISH", "NEUTRAL", "YES", "NO", "TRUE", "FALSE",
+  "OPEN", "HIGH", "LOW", "CLOSE", "LAST", "CAP", "PE", "EPS",
+]);
+
+function sheetCsvUrl(input: string): string | null {
+  const trimmed = input.trim();
+  const id =
+    trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] ??
+    (/^[a-zA-Z0-9-_]{30,}$/.test(trimmed) ? trimmed : null);
+  if (!id) return null;
+  const gid = trimmed.match(/[?&#]gid=(\d+)/)?.[1] ?? "0";
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+}
+
+function parseCsvTickers(csv: string): string[] {
+  const rows = csv.split(/\r?\n/).map((line) =>
+    line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((c) => c.replace(/^"|"$/g, "").trim()),
+  );
+  if (rows.length === 0) return [];
+  const header = rows[0]!.map((h) => h.toUpperCase());
+  let col = header.findIndex((h) => /^(TICKER|SYMBOL|SYM|TICKER SYMBOL)$/.test(h));
+  if (col < 0) col = 0;
+  const found: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: string) => {
+    const s = raw.toUpperCase().replace(/[^A-Z0-9.]/g, "");
+    if (!TICKER_CELL.test(s) || TICKER_SKIP.has(s) || seen.has(s)) return;
+    seen.add(s);
+    found.push(s);
+  };
+  for (let i = col >= 0 && header.some((h) => /TICKER|SYMBOL/.test(h)) ? 1 : 0; i < rows.length; i++) {
+    const cell = rows[i]?.[col] ?? "";
+    push(cell);
+  }
+  if (found.length < 3) {
+    for (const row of rows) for (const cell of row) push(cell);
+  }
+  return found.slice(0, 120);
+}
+
+export type SheetSyncResult = {
+  symbols: string[];
+  source: "url" | "drive" | "snapshot";
+  name: string;
+  url?: string;
+  warning?: string;
+};
+
+async function fetchCsvText(url: string): Promise<string> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12_000);
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { "User-Agent": UA, Accept: "text/csv,text/plain,*/*" },
+      redirect: "follow",
+    });
+    if (!res.ok) throw new Error("Sheet is not shared publicly.");
+    const csv = await res.text();
+    if (/<!DOCTYPE html|<html/i.test(csv.slice(0, 240))) {
+      throw new Error("Sheet is not shared publicly.");
+    }
+    return csv;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function symbolsFromSheetUrl(url: string): Promise<string[]> {
+  const csvUrl = sheetCsvUrl(url);
+  if (!csvUrl) throw new Error("Not a Google Sheet link");
+  return parseCsvTickers(await fetchCsvText(csvUrl));
+}
+
+type DriveFile = { id?: string; name?: string; mimeType?: string; webViewLink?: string };
+
+function asDriveFiles(data: unknown): DriveFile[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data as DriveFile[];
+  if (typeof data !== "object") return [];
+  const o = data as Record<string, unknown>;
+  for (const key of ["files", "items", "results", "documents", "data"]) {
+    if (Array.isArray(o[key])) return o[key] as DriveFile[];
+  }
+  if (typeof o.id === "string" || typeof o.file_id === "string") return [o as DriveFile];
+  return [];
+}
+
+function driveFileId(file: DriveFile & Record<string, unknown>): string | null {
+  for (const key of ["id", "file_id", "fileId", "documentId"]) {
+    const v = file[key];
+    if (typeof v === "string" && v) return v;
+  }
+  return null;
+}
+
+function driveText(data: unknown): string | null {
+  if (typeof data === "string") return data;
+  if (!data || typeof data !== "object") return null;
+  const o = data as Record<string, unknown>;
+  for (const key of ["content", "text", "body", "csv", "data"]) {
+    if (typeof o[key] === "string") return o[key] as string;
+  }
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return null;
+  }
+}
+
+async function symbolsFromDrive(): Promise<SheetSyncResult | null> {
+  const { callTool } = await import("@/lib/app-data/client.server");
+  const { ConnectorType } = await import("@/lib/app-data/types");
+  const opts = { connectorType: ConnectorType.GoogleDrive };
+  const queries = [
+    { q: "WatchlistSync" },
+    { query: "WatchlistSync" },
+    { q: "name:WatchlistSync mimeType:application/vnd.google-apps.spreadsheet" },
+  ];
+  let files: DriveFile[] = [];
+  for (const args of queries) {
+    const found = await callTool("google_drive_search", args, opts);
+    if (!found.ok) continue;
+    files = asDriveFiles(found.data);
+    if (files.length) break;
+  }
+  const sheet =
+    files.find((f) => /watchlistsync/i.test(f.name ?? "")) ??
+    files.find((f) => /watchlist/i.test(f.name ?? "")) ??
+    files[0];
+  if (!sheet) return null;
+  const id = driveFileId(sheet as DriveFile & Record<string, unknown>);
+  if (!id) return null;
+
+  const readArgs = [
+    { file_id: id },
+    { fileId: id },
+    { id },
+    { file_id: id, exportMimeType: "text/csv" },
+    { file_id: id, mimeType: "text/csv" },
+  ];
+  for (const args of readArgs) {
+    const read = await callTool("google_drive_read_file", args, opts);
+    if (!read.ok) continue;
+    const text = driveText(read.data);
+    if (!text) continue;
+    const symbols = parseCsvTickers(text);
+    if (symbols.length) {
+      return {
+        symbols,
+        source: "drive",
+        name: sheet.name || "WatchlistSync",
+        url: sheet.webViewLink || `https://docs.google.com/spreadsheets/d/${id}`,
+      };
+    }
+  }
+
+  try {
+    const symbols = await symbolsFromSheetUrl(`https://docs.google.com/spreadsheets/d/${id}`);
+    if (symbols.length) {
+      return {
+        symbols,
+        source: "drive",
+        name: sheet.name || "WatchlistSync",
+        url: `https://docs.google.com/spreadsheets/d/${id}`,
+      };
+    }
+  } catch {
+    /* private sheet without Drive export */
+  }
+  return null;
+}
+
+export const syncWatchlistSheet = createServerFn({ method: "POST" })
+  .validator((input: unknown) => {
+    const url =
+      input && typeof input === "object" ? (input as { url?: unknown }).url : undefined;
+    return { url: typeof url === "string" ? url.trim() : "" };
+  })
+  .handler(async ({ data }): Promise<SheetSyncResult> => {
+    if (data.url) {
+      const symbols = await symbolsFromSheetUrl(data.url);
+      if (!symbols.length) throw new Error("No tickers found in that sheet");
+      return { symbols, source: "url", name: "Google Sheet", url: data.url };
+    }
+    return {
+      symbols: [...WATCHLIST_SYNC],
+      source: "snapshot",
+      name: "WatchlistSync",
+    };
+  });
+
+export const importGoogleSheet = createServerFn({ method: "POST" })
+  .validator((input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("invalid");
+    const url = (input as { url?: unknown }).url;
+    if (typeof url !== "string" || !url.trim()) throw new Error("Sheet URL required");
+    return { url: url.trim() };
+  })
+  .handler(async ({ data }): Promise<{ symbols: string[] }> => {
+    const symbols = await symbolsFromSheetUrl(data.url);
+    if (symbols.length === 0) throw new Error("No tickers found in that sheet");
+    return { symbols };
+  });
+
 export const getHistory = createServerFn({ method: "POST" })
   .validator((input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("invalid");
@@ -301,34 +512,19 @@ export const getNews = createServerFn({ method: "POST" })
     return { query, count };
   })
   .handler(async ({ data }): Promise<NewsItem[]> => {
-    const key = `n:${data.query}:${data.count}`;
+    const key = `n3:${data.query}:${data.count}`;
     const hit = fromCache<NewsItem[]>(key);
     if (hit) return hit;
-    const url =
-      "https://query1.finance.yahoo.com/v1/finance/search?q=" +
-      encodeURIComponent(data.query) +
-      `&quotesCount=0&newsCount=${data.count}&enableFuzzyQuery=false`;
-    const json = (await yahooJson(url)) as {
-      news?: Array<{
-        uuid?: string;
-        title?: string;
-        publisher?: string;
-        link?: string;
-        providerPublishTime?: number;
-        relatedTickers?: string[];
-      }>;
-    };
-    const items: NewsItem[] = (json.news ?? [])
-      .filter((n) => n.title && n.link)
-      .map((n) => ({
-        id: n.uuid ?? n.link ?? n.title ?? crypto.randomUUID(),
-        title: n.title ?? "",
-        publisher: n.publisher ?? "Yahoo Finance",
-        link: n.link ?? "",
-        publishedAt: n.providerPublishTime ?? Math.floor(Date.now() / 1000),
-        tickers: n.relatedTickers ?? [],
-      }));
-    return cached(key, 60_000, items);
+    const q = data.query.trim();
+    const isTicker = /^[A-Z]{1,5}(?:[.-][A-Z]{1,3})?$/i.test(q) && q.toUpperCase() !== "STOCK";
+    try {
+      const items = isTicker
+        ? await tickerHeadlines(q.toUpperCase(), data.count)
+        : (await scanNews({ ticker: "", keywords: [q], max: data.count, windowDays: 7 })).items;
+      return cached(key, 60_000, items);
+    } catch {
+      return [];
+    }
   });
 
 export const scanCatalysts = createServerFn({ method: "POST" })
@@ -338,75 +534,24 @@ export const scanCatalysts = createServerFn({ method: "POST" })
       ticker?: unknown;
       keywords?: unknown;
       max?: unknown;
+      windowDays?: unknown;
     };
     const ticker =
       typeof o.ticker === "string" ? o.ticker.trim().toUpperCase().replace(/[^A-Z.]/g, "") : "";
     const keywords = Array.isArray(o.keywords)
-      ? o.keywords.filter((k): k is string => typeof k === "string").slice(0, 24)
+      ? o.keywords.filter((k): k is string => typeof k === "string").slice(0, 40)
       : [];
-    const max = typeof o.max === "number" ? Math.min(50, Math.max(5, o.max)) : 20;
-    return { ticker, keywords, max };
+    const max = typeof o.max === "number" ? Math.min(80, Math.max(5, o.max)) : 20;
+    const windowDays =
+      typeof o.windowDays === "number" && Number.isFinite(o.windowDays) ? o.windowDays : 1;
+    return { ticker, keywords, max, windowDays };
   })
-  .handler(async ({ data }): Promise<NewsItem[]> => {
-    const queries: string[] = [];
-    if (data.ticker) queries.push(data.ticker);
-    const seeds = data.keywords.length
-      ? data.keywords.slice(0, 6)
-      : ["earnings", "fda", "merger", "partnership"];
-    for (const k of seeds) queries.push(data.ticker ? `${data.ticker} ${k}` : k);
-    const unique = [...new Set(queries)].slice(0, 6);
-
-    const results = await Promise.allSettled(
-      unique.map(async (q) => {
-        const url =
-          "https://query1.finance.yahoo.com/v1/finance/search?q=" +
-          encodeURIComponent(q) +
-          "&quotesCount=0&newsCount=15";
-        const json = (await yahooJson(url)) as {
-          news?: Array<{
-            uuid?: string;
-            title?: string;
-            publisher?: string;
-            link?: string;
-            providerPublishTime?: number;
-            relatedTickers?: string[];
-          }>;
-        };
-        return json.news ?? [];
-      }),
-    );
-
-    const seen = new Set<string>();
-    const merged: NewsItem[] = [];
-    for (const r of results) {
-      if (r.status !== "fulfilled") continue;
-      for (const n of r.value) {
-        const title = n.title ?? "";
-        const key = title.toLowerCase();
-        if (!title || !n.link || seen.has(key)) continue;
-        seen.add(key);
-        merged.push({
-          id: n.uuid ?? n.link,
-          title,
-          publisher: n.publisher ?? "Yahoo Finance",
-          link: n.link,
-          publishedAt: n.providerPublishTime ?? Math.floor(Date.now() / 1000),
-          tickers: n.relatedTickers ?? [],
-        });
-      }
-    }
-
-    const keys = data.keywords.map((k) => k.toLowerCase());
-    const filtered =
-      keys.length === 0
-        ? merged
-        : merged.filter((item) => {
-            const hay = (item.title + " " + item.tickers.join(" ")).toLowerCase();
-            return keys.some((k) => hay.includes(k.toLowerCase()));
-          });
-
-    filtered.sort((a, b) => b.publishedAt - a.publishedAt);
-    return filtered.slice(0, data.max);
+  .handler(async ({ data }): Promise<ScanResult> => {
+    const key = `scan5:${data.ticker}:${data.keywords.slice().sort().join("|")}:${data.windowDays}:${data.max}`;
+    const hit = fromCache<ScanResult>(key);
+    if (hit) return hit;
+    const result = await scanNews(data);
+    return cached(key, 45_000, result);
   });
 
 const TS_TYPES = [
@@ -479,6 +624,18 @@ function emptyFundamentals(): Fundamentals {
     lastEpsActual: null,
     lastEpsEstimate: null,
     lastEpsSurprisePct: null,
+    insiderOwnPct: null,
+    insiderTransPct: null,
+    instOwnPct: null,
+    instTransPct: null,
+    shortFloatPct: null,
+    shortRatio: null,
+    shortInterest: null,
+    insiderTrades: [],
+    insiderBuyShares: 0,
+    insiderSellShares: 0,
+    insiderBuyValue: 0,
+    insiderSellValue: 0,
   };
 }
 
@@ -670,6 +827,25 @@ export const getFundamentals = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<Fundamentals> => {
     return loadFundamentals(data.symbol);
+  });
+
+export const getOwnership = createServerFn({ method: "POST" })
+  .validator((input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("invalid");
+    const o = input as { symbol?: unknown };
+    if (typeof o.symbol !== "string" || !o.symbol.trim()) throw new Error("symbol required");
+    return { symbol: yahooSymbol(o.symbol) };
+  })
+  .handler(async ({ data }): Promise<Partial<Fundamentals>> => {
+    const key = `own:${data.symbol}`;
+    const hit = fromCache<Partial<Fundamentals>>(key);
+    if (hit) return hit;
+    try {
+      const own = await loadOwnership(data.symbol);
+      return cached(key, 30 * 60_000, own);
+    } catch {
+      return cached(key, 5 * 60_000, {});
+    }
   });
 
 export const getPeerStats = createServerFn({ method: "POST" })

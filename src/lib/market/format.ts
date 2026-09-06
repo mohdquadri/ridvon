@@ -101,6 +101,69 @@ export function timeAgo(unixSec: number): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+const AMP = "\u0026";
+
+function decodeNamedEntities(raw: string): string {
+  const named: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+  };
+  let s = raw;
+  for (let i = 0; i < 4; i++) {
+    const next = s
+      .replace(new RegExp(AMP + "#(\\d+);", "g"), (_, n) => {
+        const c = Number(n);
+        return Number.isFinite(c) ? String.fromCharCode(c) : _;
+      })
+      .replace(new RegExp(AMP + "#x([0-9a-f]+);", "gi"), (_, n) => {
+        const c = Number.parseInt(n, 16);
+        return Number.isFinite(c) ? String.fromCharCode(c) : _;
+      })
+      .replace(
+        new RegExp(AMP + "(amp|lt|gt|quot|apos|nbsp);", "gi"),
+        (_, k: string) => named[k.toLowerCase()] ?? `${AMP}${k};`,
+      );
+    if (next === s) break;
+    s = next;
+  }
+  return s;
+}
+
+export function isMarkupDump(s: string): boolean {
+  return /href\s*=|<\s*\/?\s*a\b|target\s*=|_blank|<\s*font\b|<\s*\/?\s*a|news\.google\.com/i.test(
+    s,
+  );
+}
+
+export function displayHeadline(raw: string): string {
+  return decodeNamedEntities(raw)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function displaySummary(raw: string | undefined, title?: string): string {
+  if (!raw) return "";
+  if (isMarkupDump(raw)) return "";
+  const cleaned = decodeNamedEntities(raw)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned || isMarkupDump(cleaned) || cleaned.length < 28) return "";
+  if (title) {
+    const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const nt = norm(title);
+    const ns = norm(cleaned);
+    if (!ns || ns === nt || ns.startsWith(nt) || nt.startsWith(ns)) return "";
+  }
+  return cleaned;
+}
+
 export function marketSession(now = new Date()): {
   open: boolean;
   label: string;
